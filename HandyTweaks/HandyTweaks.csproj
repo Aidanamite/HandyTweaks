@@ -36,7 +36,15 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="DragonFilterMenu.cs" />
+    <Compile Include="MiscPatches.cs" />
+    <Compile Include="UIComponents\ColorPicker.cs" />
+    <Compile Include="Enums.cs" />
+    <Compile Include="ExtendedClass.cs" />
+    <Compile Include="ExtentionMethods.cs" />
     <Compile Include="Main.cs" />
+    <Compile Include="MiscClasses.cs" />
+    <Compile Include="ExtendedClassPatches.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
