@@ -28,17 +28,17 @@ namespace HandyTweaks
     public class Main : BaseUnityPlugin
     {
         [ConfigField]
-        public static KeyCode DoFarmStuff = KeyCode.KeypadMinus;
+        public static KeyCode DoFarmStuff = true;
         [ConfigField]
         public static bool AutoSpendFarmGems = false;
         [ConfigField]
-        public static bool BypassFarmGemCosts = false;
+        public static bool BypassFarmGemCosts = true;
         [ConfigField]
-        public static bool DoFarmStuffOnTimer = false;
+        public static bool DoFarmStuffOnTimer = true;
         [ConfigField]
-        public static bool CanPlaceAnywhere = false;
+        public static bool CanPlaceAnywhere = true;
         [ConfigField]
-        public static bool SkipTrivia = false;
+        public static bool SkipTrivia = true;
         [ConfigField]
         public static KeyCode DontApplyGeometry = KeyCode.LeftShift;
         [ConfigField]
@@ -54,7 +54,7 @@ namespace HandyTweaks
         [ConfigField]
         public static bool DisableDragonAutomaticSkinUnequip = true;
         [ConfigField]
-        public static bool AllowCustomizingSpecialDragons = false;
+        public static bool AllowCustomizingSpecialDragons = true;
         [ConfigField]
         public static int StableQuestChanceBoost = 0;
         [ConfigField]
@@ -68,7 +68,7 @@ namespace HandyTweaks
         [ConfigField]
         public static bool AutomaticFireballs = true;
         [ConfigField]
-        public static bool AlwaysMaxHappiness = false;
+        public static bool AlwaysMaxHappiness = true;
         [ConfigField]
         public static Dictionary<string, bool> DisableHappyParticles = new Dictionary<string, bool>();
         [ConfigField]
@@ -76,7 +76,7 @@ namespace HandyTweaks
         [ConfigField]
         public static ColorPickerMode CustomColorPickerMode = ColorPickerMode.RGBHSL;
         [ConfigField]
-        public static bool RemoveItemBuyLimits = false;
+        public static bool RemoveItemBuyLimits = true;
         //[ConfigField]
         //public static bool ForceTextTagRendering = true;
         [ConfigField]
