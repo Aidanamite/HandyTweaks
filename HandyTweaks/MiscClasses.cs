@@ -161,4 +161,45 @@ namespace HandyTweaks
             Valid = Val;
         }
     }
+
+    public class RichTextState
+    {
+        public bool italic;
+        public bool bold;
+        public int sub;
+        public bool strike;
+        public bool under;
+        public bool ignore;
+        public BetterList<Color> colors;
+        public RichTextState()
+        {
+            italic = false;
+            bold = false;
+            sub = 0;
+            strike = false;
+            under = false;
+            ignore = false;
+            colors = new();
+        }
+        public RichTextState(Color start) : this()
+        {
+            colors.Add(start);
+        }
+        public RichTextState(RichTextState other) : this()
+        {
+            CopyFrom(other);
+        }
+        public void CopyFrom(RichTextState other)
+        {
+            italic = other.italic;
+            bold = other.bold;
+            sub = other.sub;
+            strike = other.strike;
+            under = other.under;
+            ignore = other.ignore;
+            colors.buffer = (Color[])other.colors.buffer?.Clone();
+            colors.size = other.colors.size;
+        }
+        public bool ParseSymbol(string str, ref int index) => NGUIText.ParseSymbol(str, ref index, colors, false, ref sub, ref bold, ref italic, ref under, ref strike, ref ignore);
+    }
 }

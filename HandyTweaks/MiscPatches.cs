@@ -10,6 +10,9 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using TMPro;
+using System.Runtime.CompilerServices;
+using UnityEngine.Assertions.Must;
 
 namespace HandyTweaks
 {
@@ -463,6 +466,8 @@ namespace HandyTweaks
     {
         static void Postfix(RaisedPetData raisedPetData, ref string __result)
         {
+            if (Main.DisableNameCustomizationPatch)
+                return;
             if (__result.Length == 15 && __result.StartsWith("Dragon-") && uint.TryParse(__result.Remove(0, 7), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _))
                 __result = SanctuaryData.GetPetDefaultName(raisedPetData.PetTypeID);
         }
@@ -578,9 +583,10 @@ namespace HandyTweaks
         }
     }
 
-    [HarmonyPatch(typeof(KAEditBox), "ValidateText", typeof(string), typeof(int), typeof(char))]
+    [HarmonyPatch(typeof(KAEditBox))]
     static class Patch_CanInput2
     {
+        [HarmonyPatch("ValidateText", typeof(string), typeof(int), typeof(char))]
         static bool Prefix(KAEditBox __instance, string text, int charIndex, char addedChar, ref char __result)
         {
             if (Main.MoreNameFreedom && (__instance._CheckValidityOnInput && __instance._RegularExpression != null && __instance._RegularExpression.Contains("a-z")))
@@ -595,6 +601,45 @@ namespace HandyTweaks
                 return false;
             }
             return true;
+        }
+        [HarmonyPatch("IsValidText")]
+        static void Postfix(KAEditBox __instance, ref bool __result)
+        {
+            if (!__result && Main.MoreNameFreedom && (__instance._RegularExpression != null && __instance._RegularExpression.Contains("a-z")))
+                __result = true;
+        }
+    }
+
+    [HarmonyPatch(typeof(WsWebService), "SetDisplayName")]
+    static class Patch_SetDisplayName
+    {
+        static void Prefix(SetDisplayNameRequest requestObj)
+        {
+            var s = AvatarData.pInstance.DisplayName;
+            var modified = false;
+            var builder = new StringBuilder(s.Length);
+            foreach (var c in s)
+                builder.Append(Patch_CanInput.replace.TryGetValue(c, out var nc) && (modified = true) ? nc : c);
+            var state = new RichTextState(Color.white);
+            for (int i = 0; i < s.Length;)
+                if (!state.ParseSymbol(s, ref i))
+                    i++;
+            if (state.bold && (modified = true))
+                builder.Append("[/b]");
+            if (state.italic && (modified = true))
+                builder.Append("[/i]");
+            if (state.under && (modified = true))
+                builder.Append("[/u]");
+            if (state.strike && (modified = true))
+                builder.Append("[/s]");
+            if (state.sub != 0 && (modified = true))
+                builder.Append("[/sub]");
+            for (int i = state.colors.size - 1; i > 1 && (modified = true); i--)
+                builder.Append("[-]");
+            if (state.ignore && (modified = true))
+                builder.Append("[/c]");
+            if (modified)
+                requestObj.DisplayName = builder.ToString();
         }
     }
 
@@ -761,23 +806,268 @@ namespace HandyTweaks
         }
     }
 
-    /*[HarmonyPatch(typeof(UILabel))]
+    [HarmonyPatch(typeof(UtWWWAsync), "InitializeAssetVersionLists")]
+    static class Patch_OverrideExpiration
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var code = instructions.ToList();
+            code.Insert(
+                code.FindIndex(x => x.operand is MethodInfo m && m.Name == "set_expirationDelay"),
+                new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Patch_OverrideExpiration), nameof(ModifyExpiration))));
+            return code;
+        }
+        static int ModifyExpiration(int original) => Main.CacheExpiration;
+    }
+
+    [HarmonyPatch(typeof(UtWWWAsync), "LoadBundle")]
+    static class Patch_MarkCacheUsed
+    {
+        static void Prefix(Hash128 hash, ref UtWWWEventHandler callback)
+        {
+            if (Main.FixCacheExpiration && hash != default)
+                callback = ((a, b) => { if (a == UtAsyncEvent.COMPLETE) Caching.MarkAsUsed(b.pURL, hash); }) + callback;
+        }
+    }
+
+    [HarmonyPatch(typeof(UILabel))]
     static class Patch_ForceEnableEncoding
     {
         [HarmonyPatch("OnEnable")]
         public static void Prefix(UILabel __instance)
         {
-            if (Main.ForceTextTagRendering)
+            if (Main.ForceTextTagRendering && (Main.ForceTagsForInputs || !Patch_MarkUILabel.IsEdit(__instance)))
             {
                 __instance.supportEncoding = true;
                 __instance.symbolStyle = NGUIText.SymbolStyle.Colored;
             }
         }
         [HarmonyPatch("set_supportEncoding")]
-        static void Prefix(ref bool value)
+        static void Prefix(UILabel __instance, ref bool value)
         {
-            if (Main.ForceTextTagRendering)
+            if (Main.ForceTextTagRendering && (Main.ForceTagsForInputs || !Patch_MarkUILabel.IsEdit(__instance)))
                 value = true;
         }
+    }
+
+    [HarmonyPatch(typeof(UIInput), "Start")]
+    static class Patch_MarkUILabel
+    {
+        static ConditionalWeakTable<UILabel, object> marked = new();
+        static void Postfix(UIInput __instance)
+        {
+            if (__instance.label)
+            {
+                if (!marked.TryGetValue(__instance.label, out _))
+                    marked.Add(__instance.label, new object());
+                if (!Main.ForceTagsForInputs)
+                {
+                    __instance.label.supportEncoding = false;
+                    __instance.label.SetDirty();
+                }
+            }
+        }
+        public static bool IsEdit(UILabel label) => marked.TryGetValue(label, out _);
+    }
+
+    [HarmonyPatch(typeof(TMP_Text))]
+    static class Patch_TMPText
+    {
+        [HarmonyPatch("set_text")]
+        static void Prefix(TMP_Text __instance, ref string value)
+        {
+            if (Main.ForceTextTagRendering && value.SoDtoUnityRich(out var newValue, __instance.color, true, __instance.GetComponentInParent<TMP_InputField>()))
+            {
+                __instance.richText = true;
+                value = newValue;
+            }
+        }
+    }
+
+    /*[HarmonyPatch] // Just some debug code
+    static class Patch_GetAsmType
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            foreach (var t in typeof(Assembly).Assembly.GetTypes())
+                if (typeof(Assembly).IsAssignableFrom(t))
+                    foreach (var m in t.GetMethods(~BindingFlags.Default))
+                        if (typeof(Type).IsAssignableFrom(m.ReturnType) && m.HasMethodBody())
+                            yield return m;
+            yield break;
+        }
+
+        static void Postfix(object[] __args, ref Type __result)
+        {
+            Debug.Log("Type request: [" + __args.Join() + "] >> " + __result?.FullName ?? "null");
+        }
     }*/
+
+    [HarmonyPatch(typeof(AvAvatarController), "IsAirRefillingAllowed")]
+    static class Patch_HasAirSupply
+    {
+        static void Postfix(ref bool __result) => __result |= Main.InfiniteOxygen;
+    }
+
+    [HarmonyPatch(typeof(Task), "CheckRange")]
+    static class Patch_CheckInRange
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var code = instructions.ToList();
+            code.InsertRange(
+                code.FindIndex(code.FindIndex(x => x.operand is string s && s == "Proximity"), x => x.operand is MethodInfo m && m.Name == "Get") + 1,
+                new[]
+                {
+                    new CodeInstruction(OpCodes.Ldarg_0),
+                    new CodeInstruction(OpCodes.Ldloc_1),
+                    new CodeInstruction(OpCodes.Call,AccessTools.Method(typeof(Patch_CheckInRange),nameof(ModifyRange)))
+                });
+            code.InsertRange(
+                code.FindIndex(
+                    code.FindIndex(x => x.opcode == OpCodes.Ldfld && x.operand is FieldInfo f && f.Name == "_NPC") + 1,
+                    x => x.opcode == OpCodes.Ldfld && x.operand is FieldInfo f && f.Name == "_NPC") + 1,
+                new[]
+                {
+                    new CodeInstruction(OpCodes.Ldarg_0),
+                    new CodeInstruction(OpCodes.Ldloc_1),
+                    new CodeInstruction(OpCodes.Call,AccessTools.Method(typeof(Patch_CheckInRange),nameof(CheckNPC)))
+                });
+            return code;
+        }
+        static float ModifyRange(float original, Task task, TaskObjective objective)
+        {
+
+            //Debug.Log("============================= Patch_CheckInRange >> " + task.pData.Type + " compare to " + Main.RangeMissionAlwaysInRange);
+            return Main.RangeMissionAlwaysInRange != 0 && Enum.TryParse<RangeType>(task.pData.Type, out var type) && Main.RangeMissionAlwaysInRange.HasFlag(type)
+                ? type == RangeType.Chase ? float.Epsilon : -1
+                : original;
+        }
+        static GameObject CheckNPC(GameObject original, Task task, TaskObjective objective)
+        {
+            if (Main.ForceRangeMissionCompleteWithoutNPC != 0
+                && !original
+                && Enum.TryParse<RangeType>(task.pData.Type, out var type)
+                && Main.ForceRangeMissionCompleteWithoutNPC.HasFlag(type))
+            {
+                objective._WithinProximity = type != RangeType.Chase;
+                objective._ProximityTimer = 0f;
+                return null;
+            }
+            return original;
+        }
+    }
+
+    [HarmonyPatch(typeof(AIBehavior_Mission), "ProcessProximity")]
+    static class Patch_CheckInRange2
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var code = instructions.ToList();
+            code.InsertRange(
+                code.FindIndex(x => x.operand is FieldInfo f && f.Name == "Proximity") + 1,
+                new[]
+                {
+                    new CodeInstruction(OpCodes.Ldarg_0),
+                    new CodeInstruction(OpCodes.Call,AccessTools.Method(typeof(Patch_CheckInRange2),nameof(ModifyRange)))
+                });
+            return code;
+        }
+        static float ModifyRange(float original, AIBehavior_Mission actor)
+        {
+            // Note: yes, the "escort" behaviour is used for "follow" missions and the "follow" behaviour is used for "escort" missions. Don't ask me why
+            var type =
+                actor is AIBehavior_ChaseMission ? RangeType.Chase
+                : actor is AIBehavior_EscortPlayerMission ? RangeType.Follow
+                : actor is AIBehavior_NPCFollowPlayer ? RangeType.Escort
+                : RangeType.None;
+            return Main.RangeMissionAlwaysInRange != 0 && Main.RangeMissionAlwaysInRange.HasFlag(type)
+                ? type == RangeType.Chase ? float.Epsilon : float.PositiveInfinity
+                : original;
+        }
+    }
+
+    [HarmonyPatch(typeof(MyRoomsIntMain), "HasCreativePointsLimitReached")]
+    static class Patch_ReachedCreativeLimit
+    {
+        static void Postfix(ref bool __result) => __result &= !Main.InfiniteCreativity;
+    }
+
+    [HarmonyPatch(typeof(FogController), "Update")]
+    static class Patch_DisableFogPlane
+    {
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var code = instructions.ToList();
+            for (int i = code.Count - 1; i >= 0; i--)
+                if (code[i].operand is FieldInfo f && f.Name == "mIsFogActive")
+                    code.Insert(
+                        i + 1,
+                        new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Patch_DisableFogPlane), nameof(OverrideActive))));
+            return code;
+        }
+        static bool OverrideActive(bool original) => original && !Main.DisableFog;
+    }
+
+    [HarmonyPatch(typeof(FogArea))]
+    static class Patch_FogAreaStart
+    {
+        [HarmonyPatch("Start")]
+        static void Postfix(FogArea __instance)
+        {
+            __instance.gameObject.GetOrAddComponent<AreaDisabler>();
+        }
+    }
+
+    public class AreaDisabler : MonoBehaviour
+    {
+        public bool disabled;
+        public void Update()
+        {
+            if (Main.DisableFog ? GetComponent<FogArea>().mFogParticleSystem.gameObject.activeSelf : disabled)
+            {
+                var inst = GetComponent<FogArea>().mFogParticleSystem.gameObject;
+                inst.SetActive(!inst.activeSelf);
+                disabled = !inst.activeSelf;
+            }
+        }
+    }
+
+    [HarmonyPatch]
+    static class Patch_KeepName
+    {
+        static string prevName;
+
+        [HarmonyPatch(typeof(UiProfile), "ChangeName")]
+        static void Prefix(UiProfile __instance)
+        {
+            if (Main.KeepPreviousOnRename)
+                prevName = __instance.mAvatarName.GetText();
+        }
+
+        [HarmonyPatch(typeof(UiProfile), "ChangeName")]
+        static void Finalizer() => prevName = null;
+
+        [HarmonyPatch(typeof(UiSelectName), "Init")]
+        static void Prefix(ref string name)
+        {
+            if (string.IsNullOrEmpty(name) && prevName != null)
+                name = prevName;
+        }
+
+        [HarmonyPatch(typeof(UiSelectName), "SetNames")]
+        static void Prefix(UiSelectName __instance, ref string name)
+        {
+            if (string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(__instance.mSelectedName ?? __instance.mTxtName?.GetText()))
+                name = __instance.mSelectedName ?? __instance.mTxtName.GetText();
+        }
+
+        [HarmonyPatch(typeof(UiDragonName), "Start")]
+        static void Postfix(UiDragonName __instance)
+        {
+            if (Main.KeepPreviousOnRename && __instance.mSelectedPetData != null && __instance.mSelectedPetData.pIsNameCustomized)
+                __instance.mEditLabel.SetText(__instance.mSelectedPetData.Name);
+        }
+    }
+    
 }

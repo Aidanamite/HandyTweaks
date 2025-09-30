@@ -7,6 +7,8 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Net;
 using UnityEngine;
+using System.Runtime.InteropServices;
+using Object = UnityEngine.Object;
 
 namespace HandyTweaks
 {
@@ -204,6 +206,51 @@ namespace HandyTweaks
             return false;
         }
         public static string JoinValues(this Color c, string delimeter = "$") => (int)Math.Round(c.r * 255.0) + delimeter + (int)Math.Round(c.g * 255.0) + delimeter + (int)Math.Round(c.b * 255.0);
+        public static StringBuilder AppendColorDirectHex(this StringBuilder builder, Color color, string delimeter = "$")
+            => builder.AppendFormat("{0:X}{3}{1:X}{3}{2:X}", color.r.DirectAs<float, int>(), color.g.DirectAs<float, int>(), color.b.DirectAs<float, int>(), delimeter);
+        public static StringBuilder AppendColorDirectHex(this StringBuilder builder, RaisedPetColor color, string delimeter = "$")
+            => builder.AppendFormat("{0:X}{3}{1:X}{3}{2:X}", color.Red.DirectAs<float, int>(), color.Green.DirectAs<float, int>(), color.Blue.DirectAs<float, int>(),delimeter);
+        public static string DirectHex(this Color color, string delimeter = "$") => new StringBuilder().AppendColorDirectHex(color, delimeter).ToString();
+        public static string DirectHex(this RaisedPetColor color, string delimeter = "$") => new StringBuilder().AppendColorDirectHex(color, delimeter).ToString();
+        static bool _TryParseColorDirectHex(string[] values, out int r, out int g, out int b, int index)
+        {
+            if (values != null
+                && values.Length >= index + 3
+                && values[index] != null && int.TryParse(values[index], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out r)
+                && values[index + 1] != null && int.TryParse(values[index + 1], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out g)
+                && values[index + 2] != null && int.TryParse(values[index + 2], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out b))
+                return true;
+            r = 0;
+            g = 0;
+            b = 0;
+            return false;
+        }
+        public static bool TryParseColorDirectHex(this string[] values, out Color result, int index = 0)
+        {
+            if (_TryParseColorDirectHex(values,out var r, out var g, out var b, index))
+            {
+                result = new Color(r.DirectAs<int,float>(), g.DirectAs<int, float>(), b.DirectAs<int, float>());
+                return true;
+            }
+            result = default;
+            return false;
+        }
+        public static bool TryParsePetColorDirectHex(this string[] values, out RaisedPetColor result, int index = 0)
+        {
+            if (_TryParseColorDirectHex(values, out var r, out var g, out var b, index))
+            {
+                result = new RaisedPetColor() { Red = r.DirectAs<int, float>(), Green = g.DirectAs<int, float>(), Blue = b.DirectAs<int, float>() };
+                return true;
+            }
+            result = default;
+            return false;
+        }
+        public static unsafe Y DirectAs<X,Y>(this X value)
+        {
+            if (sizeof(X) != sizeof(Y))
+                throw new InvalidCastException();
+            return *(Y*)&value;
+        }
         public static T GetOrAddComponent<T>(this GameObject g) where T : Component => g.GetComponent<T>() ?? g.AddComponent<T>();
         public static Y GetValueOrDefault<X, Y>(this IReadOnlyDictionary<X, Y> d, X key) => d.TryGetValue(key, out var value) ? value : default;
 
@@ -212,6 +259,115 @@ namespace HandyTweaks
             if (index < 0 || index > l.Count)
                 return fallback;
             return l[index];
+        }
+
+        public static bool SoDtoUnityRich(this string str, out string result, Color baseColor, bool tmpro = false, bool forEdit = false)
+        {
+            var _result = new StringBuilder(str.Length);
+            var flag = false;
+            var curr = new RichTextState(baseColor);
+            var last = new RichTextState(curr);
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            void AppendColor(Color color)
+                => _result.AppendFormat("<color=#{0:X2}{1:X2}{2:X2}{3:X2}>",
+                    Math.Min(Math.Max((int)Math.Round(color.r * 255), 0), 255),
+                    Math.Min(Math.Max((int)Math.Round(color.g * 255), 0), 255),
+                    Math.Min(Math.Max((int)Math.Round(color.b * 255), 0), 255),
+                    Math.Min(Math.Max((int)Math.Round(color.a * 255), 0), 255));
+            for (int i = 0; i <= str.Length;)
+            {
+                int pi = i;
+                if (i == str.Length || curr.ParseSymbol(str, ref i))
+                {
+                    if (i == str.Length)
+                    {
+                        i++;
+                        if (flag)
+                            curr = new() { ignore = true };
+                        else
+                            continue;
+                    }
+                    else if (forEdit)
+                        _result.Append(str, pi, i - pi);
+                    if ((last.strike != curr.strike) || (last.under != curr.under))
+                    { }
+                    if (last.sub != curr.sub && tmpro)
+                    {
+                        if (last.sub != 0)
+                            _result.Append(last.sub == 1 ? "</sub>" : "</sup>");
+                        if (curr.sub != 0)
+                            _result.Append(curr.sub == 1 ? "<sub>" : "<sup>");
+                    }
+                    if (last.italic != curr.italic)
+                        _result.Append(curr.italic ? "<i>" : "</i>");
+                    if (last.bold != curr.bold)
+                        _result.Append(curr.bold ? "<b>" : "</b>");
+                    if (last.ignore != curr.ignore)
+                    {
+                        if (curr.ignore)
+                            for (int j = last.colors.size - 1; j >= 1; j--)
+                                _result.Append("</color>");
+                        else
+                            for (int j = curr.colors.size - 1; j >= 1; j--)
+                                AppendColor(curr.colors[j]);
+                    }
+                    else if (!curr.ignore && last.colors.size != curr.colors.size)
+                    {
+                        if (last.colors.size < curr.colors.size)
+                            AppendColor(curr.colors[curr.colors.size - 1]);
+                        else
+                            _result.Append("</color>");
+                    }
+                    last.CopyFrom(curr);
+                    flag = true;
+                    continue;
+                }
+                _result.Append(str[i]);
+                i++;
+            }
+            if (flag)
+            {
+                for (int j = curr.colors.size - 1; j >= 1; j--)
+                    _result.Append("</color>");
+            }
+            //    Debug.Log($"Formatted\n{str}\n----------- to\n{_result}");
+            result = flag ? _result.ToString() : str;
+            return flag;
+        }
+        public static string Join<T>(this IEnumerable<T> values, Func<T, string> converter = null, string delimeter = ", ") => new StringBuilder().Join(values, converter, delimeter).ToString();
+        public static StringBuilder Join<T>(this StringBuilder builder, IEnumerable<T> values, Func<T, string> converter = null, string delimeter = ", ")
+        {
+            bool first = false;
+            foreach (var v in values)
+            {
+                if (first)
+                    first = false;
+                else
+                    builder.Append(delimeter);
+                if (converter == null)
+                    builder.Append(v);
+                else
+                    builder.Append(converter(v));
+            }
+            return builder;
+        }
+        public static Color[] GetPixelsSafe(this Texture2D source)
+        {
+            if (source.isReadable)
+                return source.GetPixels(0);
+            RenderTexture temp = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Default);
+            Graphics.Blit(source, temp);
+            RenderTexture prev = RenderTexture.active;
+            RenderTexture.active = temp;
+            Texture2D texture = new Texture2D(source.width, source.height);
+            texture.ReadPixels(new Rect(0, 0, temp.width, temp.height), 0, 0);
+            texture.Apply();
+            var pixels = texture.GetPixels(0);
+            Object.DestroyImmediate(texture);
+            RenderTexture.active = prev;
+            RenderTexture.ReleaseTemporary(temp);
+            return pixels;
         }
     }
 }

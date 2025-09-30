@@ -20,140 +20,127 @@ using UnityEngine.EventSystems;
 using Unity.Collections;
 using BepInEx.Logging;
 using System.IO;
+using TMPro;
+
 
 namespace HandyTweaks
 {
-    [BepInPlugin("com.aidanamite.HandyTweaks", "Handy Tweaks", "1.5.10")]
-    [BepInDependency("com.aidanamite.ConfigTweaks")]
+    [BepInPlugin("com.aidanamite.HandyTweaks", "Handy Tweaks", VERSION)]
     public class Main : BaseUnityPlugin
     {
-        [ConfigField]
+        public const string VERSION = "1.6.0";
+
+        [ConfigField(Description = "Automatically does all available actions on the farm when pressed")]
         public static KeyCode DoFarmStuff = KeyCode.KeypadMinus;
-        [ConfigField]
+        [ConfigField(Description = "Allow the automatic farm actions to spend gems to speed things up")]
         public static bool AutoSpendFarmGems = false;
-        [ConfigField]
+        [ConfigField(Description = "Allow the automatic farm actions to speed things up without spending gems")]
         public static bool BypassFarmGemCosts = false;
-        [ConfigField]
+        [ConfigField(Description = "Automatically does all available actions on the farm every 0.2 seconds")]
         public static bool DoFarmStuffOnTimer = false;
-        [ConfigField]
+        [ConfigField(Description = "Disables collision checks when placing stuff in your farms or rooms")]
         public static bool CanPlaceAnywhere = false;
-        [ConfigField]
+        [ConfigField(Description = "Automatically selects the correct answer for quizzes and trivia thoughout the game.")]
         public static bool SkipTrivia = false;
-        [ConfigField]
+        [ConfigField(Description = "While held, equipping a different item on your viking will not change the model on your character")]
         public static KeyCode DontApplyGeometry = KeyCode.LeftShift;
-        [ConfigField]
+        [ConfigField(Description = "While held, equipping a different item on your viking will not change the texture on your character")]
         public static KeyCode DontApplyTextures = KeyCode.LeftAlt;
-        [ConfigField]
+        [ConfigField(Description = "Sorts the dragon select for stable quests by the dragon's effectiveness for the mission")]
         public static bool SortStableQuestDragonsByValue = false;
-        [ConfigField]
+        [ConfigField(Description = "Makes items show their racing stat benefits along side their combat stats")]
         public static bool ShowRacingEquipmentStats = false;
-        [ConfigField]
+        [ConfigField(Description = "Disables the limit on how far you can zoom out")]
         public static bool InfiniteZoom = false;
-        [ConfigField]
+        [ConfigField(Description = "Multiplies the speed that you zoom in and out")]
         public static float ZoomSpeed = 1;
-        [ConfigField]
+        [ConfigField(Description = "Makes it so your dragon doesn't unequip its selected skin when you modify the colours")]
         public static bool DisableDragonAutomaticSkinUnequip = true;
-        [ConfigField]
+        [ConfigField(Description = "Allows you to use name and colour customization on special dragons like Toothless, Lightfury and the Nightlights")]
         public static bool AllowCustomizingSpecialDragons = false;
-        [ConfigField]
+        [ConfigField(Description = "You shouldn't need to enable this option but it's available just in case")]
+        public static bool DisableNameCustomizationPatch = false;
+        [ConfigField(Description = "Increases the % chance of stable quest success")]
         public static int StableQuestChanceBoost = 0;
-        [ConfigField]
+        [ConfigField(Description = "Multiplies the stable quest effectiveness of all dragons")]
         public static float StableQuestDragonValueMultiplier = 1;
-        [ConfigField]
+        [ConfigField(Description = "Multiplies how long a stable quest takes to complete")]
         public static float StableQuestTimeMultiplier = 1;
-        [ConfigField]
+        [ConfigField(Description = "Increase the character limit on all input boxes")]
         public static bool BiggerInputBoxes = true;
-        [ConfigField]
+        [ConfigField(Description = "Removes most restrictions on what characters you're allowed to use in your viking's and dragon's names")]
         public static bool MoreNameFreedom = true;
-        [ConfigField]
+        [ConfigField(Description = "Makes it so you can hold the fireball key to fire as fast as your firerate allows")]
         public static bool AutomaticFireballs = true;
-        [ConfigField]
+        [ConfigField(Description = "Makes it so your dragons always have maximum happiness")]
         public static bool AlwaysMaxHappiness = false;
-        [ConfigField]
+        [ConfigField(Description = "Use to disable the \"happy particles\" of specific dragon species")]
         public static Dictionary<string, bool> DisableHappyParticles = new Dictionary<string, bool>();
-        [ConfigField]
+        [ConfigField(Description = "Makes it so flight suit wings are always visible even when not gliding")]
         public static bool AlwaysShowArmourWings = false;
-        [ConfigField]
+        [ConfigField(Description = "Changes the mode and visibility of the custom colour picker")]
         public static ColorPickerMode CustomColorPickerMode = ColorPickerMode.RGBHSL;
-        [ConfigField]
+        [ConfigField(Description = "Disables the max number of items/dragons you're allowed to buy in the store. You can have as many Toothless' as you want :)")]
         public static bool RemoveItemBuyLimits = false;
-        //[ConfigField]
-        //public static bool ForceTextTagRendering = true;
-        [ConfigField]
+        [ConfigField(Description = "Makes it so all text in the game will respect formatting flags")]
+        public static bool ForceTextTagRendering = true;
+        [ConfigField(Description = "Makes it so ForceTextTagRendering will also affect text inputs")]
+        public static bool ForceTagsForInputs = false;
+        [ConfigField(Description = "Makes it so you have infinite oxygen in any of the underwater sections")]
+        public static bool InfiniteOxygen = false;
+        [ConfigField(Description = "Makes it so you are always in range of NPCs in the specified mission types")]
+        public static RangeType RangeMissionAlwaysInRange = RangeType.None;
+        [ConfigField(Description = "Makes it so if the NPC to check the range of is missing, the mission can be completed anyway")]
+        public static RangeType ForceRangeMissionCompleteWithoutNPC = RangeType.Escort | RangeType.Follow | RangeType.Chase;
+        [ConfigField(Description = "Allows you to place as many items as you can in the farm and room builders")]
+        public static bool InfiniteCreativity = true;
+        [ConfigField(Description = "Disables all fog visuals")]
+        public static bool DisableFog = false;
+        [ConfigField(Description = "Makes it so when renaming your viking or dragon, the input box starts with your current name entered")]
+        public static bool KeepPreviousOnRename = true;
+
+        [ConfigField(Description = "Will check all mods to see if they have an update available and tell you what the latest version is")]
         public static bool CheckForModUpdates = true;
-        [ConfigField]
+        [ConfigField(Description = "The max time (in seconds) to wait for an update check to process before assuming the page is not available")]
         public static int UpdateCheckTimeout = 60;
-        [ConfigField]
+        [ConfigField(Description = "The max number of update checks to try and run at once")]
         public static int MaxConcurrentUpdateChecks = 4;
-        [ConfigField]
+        [ConfigField(Description = "Change the folder where the game saves its bundle cache to")]
         public static string OverrideBundleCacheLocation = "";
-        [ConfigField]
+        [ConfigField(Description = "Will make the game clear all of its cache locations. This setting will revert to false when this happens")]
         public static bool ClearBundleCache = false;
+        [ConfigField(Description = "Controls how long (in seconds) each item in the cache will be kept before being redownloaded. Max: 12960000 (150 days)")]
+        public static int CacheExpiration = 2592000;
+        [ConfigField(Description = "Fixes the expiration date updates every time the game uses the cache instead of only when downloading a new cache")]
+        public static bool FixCacheExpiration = true;
 
         public static Main instance;
         public static ManualLogSource logger;
-        public static ManualLogSource unityLogger;
         static List<(BaseUnityPlugin, string)> updatesFound = new List<(BaseUnityPlugin, string)>();
         static ConcurrentDictionary<WebRequest,bool> running = new ConcurrentDictionary<WebRequest, bool>();
         static int currentActive;
         static bool seenLogin = false;
         static GameObject waitingUI;
-        static RectTransform textContainer;
-        static Text waitingText;
+        static TMP_Text waitingText;
         float waitingTime;
         public void Awake()
         {
             instance = this;
-            unityLogger = BepInEx.Logging.Logger.CreateLogSource("Unity");
-            Application.logMessageReceived += (x, y, z) =>
-            {
-                if ((z == LogType.Error || z == LogType.Exception) && !x.StartsWith("[Error  :"))
-                    unityLogger.LogError(!string.IsNullOrWhiteSpace(y) ? x + '\n' + y : x);
-            };
             Config.ConfigReloaded += OnConfigLoad;
             OnConfigLoad();
-            if (CheckForModUpdates)
-            {
-                waitingUI = new GameObject("Waiting UI", typeof(RectTransform));
-                var c = waitingUI.AddComponent<Canvas>();
-                DontDestroyOnLoad(waitingUI);
-                c.renderMode = RenderMode.ScreenSpaceOverlay;
-                var s = c.gameObject.AddComponent<CanvasScaler>();
-                s.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                s.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-                s.matchWidthOrHeight = 1;
-                s.referenceResolution = new Vector2(Screen.width, Screen.height);
-                var backing = new GameObject("back", typeof(RectTransform)).AddComponent<Image>();
-                backing.transform.SetParent(c.transform, false);
-                backing.color = Color.black;
-                backing.gameObject.layer = LayerMask.NameToLayer("UI");
-                waitingText = new GameObject("text", typeof(RectTransform)).AddComponent<Text>();
-                waitingText.transform.SetParent(backing.transform, false);
-                waitingText.text = "Checking for mod updates (??? remaining)";
-                waitingText.font = Font.CreateDynamicFontFromOSFont("Consolas", 100);
-                waitingText.fontSize = 25;
-                waitingText.color = Color.white;
-                waitingText.alignment = TextAnchor.MiddleCenter;
-                waitingText.material = new Material(Shader.Find("Unlit/Text"));
-                waitingText.gameObject.layer = LayerMask.NameToLayer("UI");
-                waitingText.supportRichText = true;
-                textContainer = backing.GetComponent<RectTransform>();
-                textContainer.anchorMin = new Vector2(0, 1);
-                textContainer.anchorMax = new Vector2(0, 1);
-                textContainer.offsetMin = new Vector2(0, -waitingText.preferredHeight - 40);
-                textContainer.offsetMax = new Vector2(waitingText.preferredWidth + 40, 0);
-                var tT = waitingText.GetComponent<RectTransform>();
-                tT.anchorMin = new Vector2(0, 0);
-                tT.anchorMax = new Vector2(1, 1);
-                tT.offsetMin = new Vector2(20, 20);
-                tT.offsetMax = new Vector2(-20, -20);
-                foreach (var plugin in Resources.FindObjectsOfTypeAll<BaseUnityPlugin>())
-                    CheckModVersion(plugin);
-            }
-            using (var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("HandyTweaks.handytweaks"))
+            using (var s = typeof(Main).Assembly.GetManifestResourceStream("HandyTweaks.handytweaks"))
             {
                 var b = AssetBundle.LoadFromStream(s);
-                ColorPicker.UIPrefab = b.LoadAsset<GameObject>("ColorPicker");
+                Instantiate(b.LoadAsset<GameObject>("UIManager"));
+                if (CheckForModUpdates)
+                {
+                    var ui = Instantiate(b.LoadAsset<GameObject>("ModUpdateUI").GetComponent<UpdateCheckUI>());
+                    DontDestroyOnLoad(waitingUI = ui.gameObject);
+                    waitingText = ui.label;
+                    waitingText.text = "Checking for mod updates (??? remaining)";
+                    foreach (var plugin in Resources.FindObjectsOfTypeAll<BaseUnityPlugin>())
+                        CheckModVersion(plugin);
+                }
                 b.Unload(false);
             }
             new Harmony("com.aidanamite.HandyTweaks").PatchAll();
@@ -200,10 +187,27 @@ namespace HandyTweaks
                 ClearBundleCache = false;
                 Config.Save();
             }
-            /*if (ForceTextTagRendering)
+            for (int i = 0; i < Caching.cacheCount; i++)
+            {
+                var cache = Caching.GetCacheAt(i);
+                cache.expirationDelay = CacheExpiration;
+            }
+            if (ForceTextTagRendering)
+            {
                 foreach (var lbl in FindObjectsOfType<UILabel>())
-                    Patch_ForceEnableEncoding.Prefix(lbl);*/
+                    Patch_ForceEnableEncoding.Prefix(lbl);
+                foreach (var lbl in FindObjectsOfType<TMP_Text>())
+                    lbl.text = lbl.text;
+                foreach (var lbl in FindObjectsOfType<TextMesh>())
+                    if (lbl.text.SoDtoUnityRich(out var txt, lbl.color))
+                    {
+                        lbl.richText = true;
+                        lbl.text = txt;
+                    }
+            }
         }
+
+        static ConditionalWeakTable<TextMesh, object> textCache = new ConditionalWeakTable<TextMesh, object>();
 
         public static void ChangeCache(string path)
         {
@@ -297,7 +301,7 @@ namespace HandyTweaks
             }
             var request = WebRequest.CreateHttp(url);
             request.Timeout = UpdateCheckTimeout * 1000;
-            request.UserAgent = "SoDMod-HandyTweaks-UpdateChecker";
+            request.UserAgent = "SoDMod-HandyTweaks-UpdateChecker-" + plugin.Info.Metadata.GUID;
             request.Accept = isGit ? "application/vnd.github+json" : "raw";
             request.Method = "GET";
             running[request] = true;
@@ -468,12 +472,6 @@ namespace HandyTweaks
             waitingTime += Time.deltaTime;
             if (waitingText)
             {
-                if (waitingTime >= 1)
-                {
-                    textContainer.offsetMin = new Vector2(0, -waitingText.preferredHeight - 40);
-                    textContainer.offsetMax = new Vector2(waitingText.preferredWidth + 40, 0);
-                    waitingTime -= 1;
-                }
                 var t = $"Checking for mod updates ({running?.Count ?? 0} remaining)";
                 var s = new StringBuilder();
                 for (int i = 0; i < t.Length; i++)
@@ -493,20 +491,63 @@ namespace HandyTweaks
                 if (cur < max)
                     SanctuaryManager.pCurPetInstance.UpdateMeter(SanctuaryPetMeterType.HAPPINESS, max - cur);
             }
+
+            if (ForceTextTagRendering)
+            {
+                textMeshInterval -= Time.deltaTime;
+                if (textMeshInterval <= 0)
+                {
+                    textMeshInterval = 0.2f;
+                    foreach (var lbl in FindObjectsOfType<TextMesh>())
+                        if (!textCache.TryGetValue(lbl, out var oldTxt) || oldTxt != (object)lbl.text)
+                        {
+                            if (lbl.text.SoDtoUnityRich(out var txt, lbl.color))
+                            {
+                                lbl.richText = true;
+                                lbl.text = txt;
+                            }
+                            textCache.Remove(lbl);
+                            textCache.Add(lbl, lbl.text);
+                        }
+                }
+            }
         }
+        static float textMeshInterval;
 
         public static void TryFixUsername()
         {
             var s = AvatarData.pInstance.DisplayName;
-            foreach (var p in Patch_CanInput.replace)
-                s = s.Replace(p.Key, p.Value);
-            if (AvatarData.pInstance.DisplayName != s)
+            var modified = false;
+            var builder = new StringBuilder(s.Length);
+            foreach (var c in s)
+                builder.Append(Patch_CanInput.replace.TryGetValue(c, out var nc) && (modified = true) ? nc : c);
+            var state = new RichTextState(Color.white);
+            for (int i = 0; i < s.Length;)
+                if (!state.ParseSymbol(s, ref i))
+                    i++;
+            if (state.bold && (modified = true))
+                builder.Append("[/b]");
+            if (state.italic && (modified = true))
+                builder.Append("[/i]");
+            if (state.under && (modified = true))
+                builder.Append("[/u]");
+            if (state.strike && (modified = true))
+                builder.Append("[/s]");
+            if (state.sub != 0 && (modified = true))
+                builder.Append("[/sub]");
+            for (int i = state.colors.size - 1; i > 1 && (modified = true); i--)
+                builder.Append("[-]");
+            if (state.ignore && (modified = true))
+                builder.Append("[/c]");
+            if (modified)
+            {
+                s = builder.ToString();
                 WsWebService.SetDisplayName(new SetDisplayNameRequest
                 {
                     DisplayName = s,
                     ItemID = 0,
                     StoreID = 0
-                }, (a,b,c,d,e) =>
+                }, (a, b, c, d, e) =>
                 {
                     if (b == WsServiceEvent.COMPLETE)
                     {
@@ -518,6 +559,7 @@ namespace HandyTweaks
                         }
                     }
                 }, null);
+            }
         }
 
         void OnPopupClose()
@@ -587,9 +629,9 @@ namespace HandyTweaks
         public static List<ItemData> Buying;
         public void ConfirmBuyAll()
         {
-            if ( GemCost > Money.pGameCurrency || CoinCost > Money.pCashCurrency)
+            if ( GemCost > Money.pCashCurrency || CoinCost > Money.pGameCurrency)
             {
-                GameUtilities.DisplayOKMessage("PfKAUIGenericDB", GemCost > Money.pGameCurrency ? CoinCost > Money.pCashCurrency ? "Not enough gems and coins" : "Not enough gems" : "Not enough coins", null, "");
+                GameUtilities.DisplayOKMessage("PfKAUIGenericDB", GemCost > Money.pCashCurrency ? CoinCost > Money.pGameCurrency ? "Not enough gems and coins" : "Not enough gems" : "Not enough coins", null, "");
                 return;
             }
             foreach (var i in Buying)
@@ -615,6 +657,30 @@ namespace HandyTweaks
 
         static Main()
         {
+            AppDomain.CurrentDomain.AssemblyResolve += (x, y) =>
+            {
+                var n = new AssemblyName(y.Name);
+                if (n.Name.StartsWith("Assembly-CSharq",StringComparison.OrdinalIgnoreCase))
+                {
+                    n.Name = new StringBuilder(n.Name) { [14] = 'p' }.ToString();
+                    return AppDomain.CurrentDomain.Load(n);
+                }
+                var s = typeof(Main).Assembly.GetManifestResourceStream("HandyTweaks." + n.Name + ".dll");
+                if (s != null)
+                {
+                    try
+                    {
+                        var data = new byte[s.Length];
+                        s.Read(data, 0, data.Length);
+                        return Assembly.Load(data);
+                    }
+                    finally
+                    {
+                        s.Dispose();
+                    }
+                }
+                return null;
+            };
             if (!TomlTypeConverter.CanConvert(typeof(Dictionary<string, bool>)))
                 TomlTypeConverter.AddConverter(typeof(Dictionary<string, bool>), new TypeConverter()
                 {
@@ -751,7 +817,9 @@ namespace HandyTweaks
                     {
                         WsWebService.SetRaisedPetInactive(petid, (f, g, h, i, j) =>
                         {
-                            if (g == WsServiceEvent.COMPLETE)
+                            if (g != WsServiceEvent.COMPLETE && g != WsServiceEvent.ERROR)
+                                return;
+                            if (g == WsServiceEvent.COMPLETE && (bool)i)
                             {
                                 originalData.RemoveFromActivePet();
                                 var nest = StableData.GetByPetID(petid)?.GetNestByPetID(petid);
@@ -762,7 +830,7 @@ namespace HandyTweaks
                                 }
                                 OnEnd("Dragon released", true);
                             }
-                            else if (b == WsServiceEvent.ERROR)
+                            else
                                 WsWebService.SetRaisedPet(originalData, Array.Empty<CommonInventoryRequest>(), (k, l, m, n, o) =>
                                 {
                                     if (l == WsServiceEvent.COMPLETE)
@@ -784,6 +852,81 @@ namespace HandyTweaks
         public void ConfirmDestroyDragon()
         {
             TryDestroyDragon(destroyCard.ui,destroyCard.succ,destroyCard.fail);
+        }
+    }
+}
+
+public static class ModuleInitializer
+{
+    public static void Initialize()
+    {
+
+        try
+        {
+            TestHarmony();
+        }
+        catch
+        {
+            ErrorMessageHandler.Show("[FF0000]Harmony is not working![FFFFFF]\nTry moving the game to a different folder in your computer");
+            throw;
+        }
+        try
+        {
+            TestConfigTweaks();
+        }
+        catch
+        {
+            ErrorMessageHandler.Show("[FF0000]Required mod missing![FFFFFF]\nConfig Tweaks mod not found");
+            throw;
+        }
+        try
+        {
+            TestConfigTweaksVersion();
+        }
+        catch
+        {
+            ErrorMessageHandler.Show("[FF0000]Required mod outdated![FFFFFF]\nConfig Tweaks mod is outdated");
+            throw;
+        }
+    }
+
+    static void TestConfigTweaks()
+    {
+        typeof(ConfigFieldAttribute).ToString();
+    }
+
+    static void TestConfigTweaksVersion()
+    {
+        _ = new ConfigFieldAttribute().Description;
+    }
+    static void TestHarmony()
+    {
+        new Harmony("com.aidanamite.HandyTweaks_TestPatch").Patch(AccessTools.Method(typeof(ModuleInitializer), nameof(TestHarmony)), new HarmonyMethod(typeof(ModuleInitializer), nameof(_Prefix)));
+    }
+    static void _Prefix() { }
+
+    class ErrorMessageHandler : MonoBehaviour
+    {
+        string message;
+        Component msgBox;
+        void Update()
+        {
+            if (!msgBox)
+                msgBox = GameUtilities.DisplayOKMessage("PfKAUIGenericDB", message, gameObject, nameof(OnOk));
+            if (!Cursor.visible)
+                Cursor.visible = true;
+        }
+
+        void OnOk()
+        {
+            Application.Quit(0);
+        }
+
+        public static void Show(string message)
+        {
+            var go = new GameObject("ERRMSG");
+            DontDestroyOnLoad(go);
+            go.AddComponent<ErrorMessageHandler>().message = message;
         }
     }
 }

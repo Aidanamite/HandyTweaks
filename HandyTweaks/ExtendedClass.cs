@@ -74,12 +74,25 @@ namespace HandyTweaks
 
     public class ExtendedPetData : ExtendedClass<ExtendedPetData, RaisedPetData>
     {
-        public const string FIREBALLCOLOR_KEY = "HTFC"; // Handy Tweaks Fireball Colour
+        public const string FIREBALLCOLOR_OLDKEY = "HTFC"; // Handy Tweaks Fireball Colour (non-hexidecimal, legacy purposes only)
+        public const string FIREBALLCOLOR_KEY = "HTFCH"; // Handy Tweaks Fireball Colour
         public Color? FireballColor;
-        public const string EMISSIONCOLOR_KEY = "HTEC"; // Handy Tweaks Emission Colour
+        public const string EMISSIONCOLOR_OLDKEY = "HTEC"; // Handy Tweaks Emission Colour (non-hexidecimal, legacy purposes only)
+        public const string EMISSIONCOLOR_KEY = "HTECH"; // Handy Tweaks Emission Colour
         public Color? EmissionColor;
         public const string ISINTACT_KEY = "HTIFI"; // Handy Tweaks Is Fury Intact
         public bool isIntact;
+        public const string HIGHERCOLORS_KEY = "HTHCV"; // Using "higher" colours for dragon
+    }
+
+    public class ExtendedEmissionTexture : ExtendedClass<ExtendedEmissionTexture, Texture2D>
+    {
+        public bool HasAnyColor;
+        protected override void OnCreate(Texture2D instance)
+        {
+            base.OnCreate(instance);
+            HasAnyColor = instance.GetPixelsSafe().Any(x => x.r != 0 || x.g != 0 || x.b != 0);
+        }
     }
 
     public class ExtendedDragonCustomization : ExtendedClass<ExtendedDragonCustomization, UiDragonCustomization>
@@ -222,7 +235,7 @@ namespace HandyTweaks
         public void Refresh()
         {
             if (ReleaseBtn)
-                ReleaseBtn.SetVisibility(instance.pSelectedPetData != SanctuaryManager.pCurPetData);
+                ReleaseBtn.SetVisibility(instance.pSelectedPetID != SanctuaryManager.pCurPetData.RaisedPetID || true);
         }
         public void OnClick(KAWidget widget)
         {
@@ -280,7 +293,7 @@ namespace HandyTweaks
                 var verts = instance.vertices;
                 var tris = instance.triangles;
 
-                Side GetSide(int vInd) => verts[vInd].x > 0.001 ? Side.Good : verts[vInd].x < -0.001 ? Side.Bad : Side.Middle;
+                Side GetSide(int vInd) => verts[vInd].x >= 0 ? Side.Good : verts[vInd].x < -0.001 ? Side.Bad : Side.Middle;
                 for (int i = 0; i < tris.Length; i += 3)
                 {
                     var t1 = tris[i];
@@ -291,11 +304,11 @@ namespace HandyTweaks
                     var s3 = GetSide(t3);
                     if (s1 == Side.Good || s2 == Side.Good || s3 == Side.Good || (s1 == Side.Middle && s2 == Side.Middle && s3 == Side.Middle))
                     {
-                        var noneBad = s1 != Side.Bad && s2 != Side.Bad && s3 != Side.Bad;
-                        keep[t1] = keep.GetValueOrDefault(t1) || noneBad;
-                        keep[t2] = keep.GetValueOrDefault(t2) || noneBad;
-                        keep[t3] = keep.GetValueOrDefault(t3) || noneBad;
-                        if (noneBad)
+                        var notAllBad = s1 != Side.Bad || s2 != Side.Bad || s3 != Side.Bad;
+                        keep[t1] = (keep.TryGetValue(t1,out var v) ? v : false) || notAllBad;
+                        keep[t2] = (keep.TryGetValue(t2, out v) ? v : false) || notAllBad;
+                        keep[t3] = (keep.TryGetValue(t3, out v) ? v : false) || notAllBad;
+                        if (notAllBad)
                             tDup.Add(i);
                         else
                             tKeep.Add(i);

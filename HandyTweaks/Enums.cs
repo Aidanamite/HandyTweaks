@@ -36,4 +36,13 @@ namespace HandyTweaks
         Middle,
         Bad
     }
+
+    [Flags]
+    public enum RangeType
+    {
+        None,
+        Escort = 1,
+        Follow = 1 << 1,
+        Chase = 1 << 2
+    }
 }

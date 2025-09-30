@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Text;
 using UnityEngine;
 
 namespace HandyTweaks
@@ -134,9 +135,9 @@ namespace HandyTweaks
         [HarmonyPostfix] 
         static void Update(UiDragonCustomization __instance)
         {
+            var e = ExtendedDragonCustomization.Get(__instance);
             if (Input.GetMouseButtonDown(1))
             {
-                var e = ExtendedDragonCustomization.Get(__instance);
                 var flag = false;
                 if (KAUI.GetGlobalMouseOverItem() == e.emissionColorBtn)
                 {
@@ -156,6 +157,27 @@ namespace HandyTweaks
                     __instance.RemoveDragonSkin();
                     __instance.mMenu.mModified = true;
                 }
+            }
+
+            if (__instance.mPet)
+            {
+                var hasGlow = false;
+                var rends = __instance.mPet.GetComponentsInChildren<Renderer>();
+                foreach (var r in rends)
+                    if (r && r.sharedMaterials != null)
+                        foreach (var m in r.sharedMaterials)
+                        {
+                            if (!m.HasColor("_EmissiveColor"))
+                                continue;
+                            var c = m.GetColor("_EmissiveColor");
+                            if (c.r == 0 && c.g == 0 && c.b == 0)
+                                continue;
+                            if (!m.HasTexture("_EmissiveMap") || m.GetTexture("_EmissiveMap") as Texture2D == null)
+                                hasGlow = true;
+                            else
+                                hasGlow = ExtendedEmissionTexture.Get(m.GetTexture("_EmissiveMap") as Texture2D).HasAnyColor;
+                        }
+                e.emissionColorBtn.SetVisibility(hasGlow);
             }
         }
     }
@@ -197,34 +219,59 @@ namespace HandyTweaks
         [HarmonyPatch("ParseResStringEx")]
         static void Postfix(string s, RaisedPetData __instance)
         {
-            ExtendedPetData.Get(__instance).isIntact = false;
+            var data = ExtendedPetData.Get(__instance);
+            data.isIntact = false;
+            data.FireballColor = null;
+            data.EmissionColor = null;
             foreach (var i in s.Split('*'))
                 if (i == ExtendedPetData.ISINTACT_KEY)
-                    ExtendedPetData.Get(__instance).isIntact = true;
+                    data.isIntact = true;
                 else
                 {
                     var values = i.Split('$');
-                    if (values.Length >= 2 && values[0] == ExtendedPetData.FIREBALLCOLOR_KEY)
+                    if (values.Length >= 2 && values[0] == ExtendedPetData.FIREBALLCOLOR_OLDKEY)
                     {
                         if (values.TryParseColor(out var c, 1))
-                            ExtendedPetData.Get(__instance).FireballColor = c;
+                            data.FireballColor = c;
                         else if (values[1].TryParseColor(out c))
-                            ExtendedPetData.Get(__instance).FireballColor = c;
+                            data.FireballColor = c;
                     }
-                    else if (values.TryParseColor(out var c, 1))
-                        ExtendedPetData.Get(__instance).EmissionColor = c;
+                    else if (values[0] == ExtendedPetData.EMISSIONCOLOR_OLDKEY && values.TryParseColor(out var c, 1))
+                        data.EmissionColor = c;
+                    else if (values[0] == ExtendedPetData.FIREBALLCOLOR_KEY && values.TryParseColorDirectHex(out c, 1))
+                        data.FireballColor = c;
+                    else if (values[0] == ExtendedPetData.EMISSIONCOLOR_KEY && values.TryParseColorDirectHex(out c, 1))
+                        data.EmissionColor = c;
+                    else if (values[0] == ExtendedPetData.HIGHERCOLORS_KEY)
+                    {
+                        var colors = new RaisedPetColor[values.Length - 1 / 3];
+                        for (int j = 0; j < colors.Length; j++)
+                            if (values.TryParsePetColorDirectHex(out var c2, j * 3 + 1))
+                                (colors[j] = c2).Order = j;
+                        __instance.Colors = colors;
+                    }
                 }
         }
         [HarmonyPatch("SaveToResStringEx")]
         static void Postfix(RaisedPetData __instance, ref string __result)
         {
             var d = ExtendedPetData.Get(__instance);
+            StringBuilder result = null;
             if (d.FireballColor != null)
-                __result += ExtendedPetData.FIREBALLCOLOR_KEY + "$" + d.FireballColor.Value.JoinValues() + "*";
+                (result ?? (result = new StringBuilder(__result))).Append(ExtendedPetData.FIREBALLCOLOR_KEY).Append("$").AppendColorDirectHex(d.FireballColor.Value);
             if (d.EmissionColor != null)
-                __result += ExtendedPetData.EMISSIONCOLOR_KEY + "$" + d.EmissionColor.Value.JoinValues() + "*";
+                (result ?? (result = new StringBuilder(__result))).Append(ExtendedPetData.EMISSIONCOLOR_KEY).Append("$").AppendColorDirectHex(d.EmissionColor.Value);
             if (d.isIntact)
-                __result += ExtendedPetData.ISINTACT_KEY + "*";
+                (result ?? (result = new StringBuilder(__result))).Append(ExtendedPetData.ISINTACT_KEY).Append("*");
+            if (Patch_FixHigherMMOColours.LoweredColors)
+            {
+                (result ?? (result = new StringBuilder(__result))).Append(ExtendedPetData.HIGHERCOLORS_KEY);
+                foreach (var c in __instance.Colors)
+                    result.Append("$").AppendColorDirectHex(c);
+                result.Append("*");
+            }
+            if (result != null)
+                __result = result.ToString();
         }
         [HarmonyPatch("SaveDataReal")]
         static void Prefix(RaisedPetData __instance)
@@ -233,12 +280,14 @@ namespace HandyTweaks
             if (d.EmissionColor == null)
                 __instance.SetAttrData(ExtendedPetData.EMISSIONCOLOR_KEY, "false", DataType.BOOL);
             else
-                __instance.SetAttrData(ExtendedPetData.EMISSIONCOLOR_KEY, d.EmissionColor.Value.JoinValues(), DataType.STRING);
+                __instance.SetAttrData(ExtendedPetData.EMISSIONCOLOR_KEY, d.EmissionColor.Value.DirectHex(), DataType.STRING);
+            __instance.RemoveAttrData(ExtendedPetData.EMISSIONCOLOR_OLDKEY);
 
             if (d.FireballColor == null)
                 __instance.SetAttrData(ExtendedPetData.FIREBALLCOLOR_KEY, "false", DataType.BOOL);
             else
-                __instance.SetAttrData(ExtendedPetData.FIREBALLCOLOR_KEY, d.FireballColor.Value.JoinValues(), DataType.STRING);
+                __instance.SetAttrData(ExtendedPetData.FIREBALLCOLOR_KEY, d.FireballColor.Value.DirectHex(), DataType.STRING);
+            __instance.RemoveAttrData(ExtendedPetData.FIREBALLCOLOR_OLDKEY);
 
             if (d.isIntact)
                 __instance.SetAttrData(ExtendedPetData.ISINTACT_KEY, "true", DataType.BOOL);
@@ -250,21 +299,51 @@ namespace HandyTweaks
         {
             var d = ExtendedPetData.Get(__instance);
             var a = __instance.FindAttrData(ExtendedPetData.FIREBALLCOLOR_KEY);
-            if (a?.Value != null && a.Type == DataType.STRING)
-            {
-                var values = a.Value.Split('$');
-                if (values.TryParseColor(out var c))
+            if (a?.Value != null && a.Type == DataType.STRING && a.Value.Split('$').TryParseColorDirectHex(out var c))
                     d.FireballColor = c;
-            }
-            a = __instance.FindAttrData(ExtendedPetData.EMISSIONCOLOR_KEY);
-            if (a?.Value != null && a.Type == DataType.STRING)
-            {
-                var values = a.Value.Split('$');
-                if (values.TryParseColor(out var c))
-                    d.EmissionColor = c;
-            }
-            a = __instance.FindAttrData(ExtendedPetData.ISINTACT_KEY);
-            d.isIntact = a?.Value == "true" && a.Type == DataType.BOOL;
+            else if ((a = __instance.FindAttrData(ExtendedPetData.FIREBALLCOLOR_OLDKEY))?.Value != null && a.Type == DataType.STRING && a.Value.Split('$').TryParseColor(out c))
+                d.FireballColor = c;
+
+            if ((a = __instance.FindAttrData(ExtendedPetData.EMISSIONCOLOR_KEY))?.Value != null && a.Type == DataType.STRING && a.Value.Split('$').TryParseColorDirectHex(out c))
+                d.EmissionColor = c;
+            else if ((a = __instance.FindAttrData(ExtendedPetData.EMISSIONCOLOR_OLDKEY))?.Value != null && a.Type == DataType.STRING && a.Value.Split('$').TryParseColor(out c))
+                d.EmissionColor = c;
+            
+            d.isIntact = (a = __instance.FindAttrData(ExtendedPetData.ISINTACT_KEY))?.Value == "true" && a.Type == DataType.BOOL;
+        }
+    }
+
+    [HarmonyPatch(typeof(RaisedPetData), "SaveToResStringEx")]
+    static class Patch_FixHigherMMOColours
+    {
+        public static bool LoweredColors = false;
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var code = instructions.ToList();
+            code.Insert(
+                code.FindIndex(x => x.operand is FieldInfo f && f.Name == "Colors") + 1,
+                new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Patch_FixHigherMMOColours), nameof(MaybeReplace))));
+            return code;
+        }
+        const float min = int.MinValue / 99f;
+        const float max = int.MaxValue / 99f;
+        static RaisedPetColor[] _cache;
+        static RaisedPetColor[] MaybeReplace(RaisedPetColor[] colors)
+        {
+            var div = 1f;
+            foreach (var color in colors)
+                div = Math.Max(div, Math.Max(Math.Max(
+                    Math.Max(color.Red / min, color.Red / max),
+                    Math.Max(color.Green / min, color.Green / max)),
+                    Math.Max(color.Blue / min, color.Blue / max)));
+            LoweredColors = div != 1;
+            if (div == 1)
+                return colors;
+            var ncolors = _cache == null || _cache.Length != colors.Length ? _cache = new RaisedPetColor[colors.Length] : _cache;
+            int i = 0;
+            foreach (var color in colors)
+                ncolors[i++] = new RaisedPetColor() { Red = color.Red / div, Green = color.Green / div, Blue = color.Blue / div, Order = color.Order };
+            return ncolors;
         }
     }
 

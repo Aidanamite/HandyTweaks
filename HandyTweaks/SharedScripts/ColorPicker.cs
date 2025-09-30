@@ -2,29 +2,15 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+#if GAME
+using JSGames.Tween;
+#endif
 
 namespace HandyTweaks
 {
-    public class ColorPicker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    public class ColorPicker : HandyUI, IPointerEnterHandler, IPointerExitHandler
     {
         public Image Display;
-        public class ColorSlider
-        {
-            public ColorSlider(Slider slider, InputField input, Image back, Image tint)
-            {
-                this.slider = slider;
-                this.input = input;
-                this.back = back;
-                this.tint = tint;
-            }
-            public ColorSlider(Transform transform, string slider = "Slider", string input = "Input", string back = "Slider/Background/GradientBackground", string tint = "Slider/Background/GradientBackground/Gradient")
-                : this(transform.Find(slider).GetComponent<Slider>(), transform.Find(input).GetComponent<InputField>(), transform.Find(back).GetComponent<Image>(), transform.Find(tint).GetComponent<Image>())
-            { }
-            public Slider slider;
-            public InputField input;
-            public Image back;
-            public Image tint;
-        }
         public ColorSlider Red;
         public ColorSlider Green;
         public ColorSlider Blue;
@@ -45,12 +31,11 @@ namespace HandyTweaks
                 return null;
             }
         }
-        public Button Close;
+        public Button CloseButton;
         public event Action<Color> OnChange;
         public event Action OnClose;
         public Func<bool> Requires;
 
-        KAUI handle;
         Color _c;
         public Color current
         {
@@ -63,24 +48,23 @@ namespace HandyTweaks
                 UpdateSliders(value);
             }
         }
-        T GetComponent<T>(string path) where T : Component => Find(path).GetComponent<T>();
-        Transform Find(string path) => transform.Find(path);
-        void Awake()
+
+        public override void Awake()
         {
             handle = gameObject.AddComponent<KAUI>();
 
-            Display = GetComponent<Image>("LeftContainer/ColorView/Color");
-            Red = new ColorSlider(Find("R"));
-            Green = new ColorSlider(Find("G"));
-            Blue = new ColorSlider(Find("B"));
-            Hue = new ColorSlider(Find("H"),back: "Slider/Background/GradientBackground/Gradient",tint: "Slider/Background/GradientBackground/Tint");
-            Saturation = new ColorSlider(Find("S"));
-            Luminosity = new ColorSlider(Find("L"));
+            //Display = GetComponent<Image>("LeftContainer/ColorView/Color");
+            //Red = new ColorSlider(Find("R"));
+            //Green = new ColorSlider(Find("G"));
+            //Blue = new ColorSlider(Find("B"));
+            //Hue = new ColorSlider(Find("H"),back: "Slider/Background/GradientBackground/Gradient",tint: "Slider/Background/GradientBackground/Tint");
+            //Saturation = new ColorSlider(Find("S"));
+            //Luminosity = new ColorSlider(Find("L"));
             UpdateSliderVisibility();
 
-            Close = GetComponent<Button>("LeftContainer/CloseButton");
+            //Close = GetComponent<Button>("LeftContainer/CloseButton");
 
-            Close.onClick.AddListener(CloseUI);
+            CloseButton.onClick.AddListener(OnCloseButton);
             foreach (var t in new[] { "R","G","B","H","S","L" })
             {
                 var tag = t;
@@ -102,9 +86,9 @@ namespace HandyTweaks
             var rgb = (Main.CustomColorPickerMode & ColorPickerMode.RGB) != 0;
             var hsl = (Main.CustomColorPickerMode & ColorPickerMode.HSL) != 0;
             foreach (var t in new[] { "R", "G", "B" })
-                Find(t).gameObject.SetActive(rgb);
+                this[t].gameObject.SetActive(rgb);
             foreach (var t in new[] { "H", "S", "L" })
-                Find(t).gameObject.SetActive(hsl);
+                this[t].gameObject.SetActive(hsl);
         }
 
         void IPointerEnterHandler.OnPointerEnter(PointerEventData eventData)
@@ -115,18 +99,18 @@ namespace HandyTweaks
         {
             KAUI.RemoveExclusive(handle);
         }
-        void CloseUI()
+        public override void Close()
         {
-            Destroy(GetComponentInParent<Canvas>().gameObject);
-        }
-        void OnDestroy()
-        {
-            KAUI.RemoveExclusive(GetComponent<KAUI>());
+            base.Close();
             OnClose?.Invoke();
         }
-
+        //public const float max = int.MaxValue / 99f;
+        //public const float min = int.MinValue / 99f;
         void UpdateSliders(Color nColor, string called = null, float value = 0, bool fromInput = false)
         {
+            //nColor.r = Math.Max(min, Math.Min(max, nColor.r));
+            //nColor.g = Math.Max(min, Math.Min(max, nColor.g));
+            //nColor.b = Math.Max(min, Math.Min(max, nColor.b));
             _c = nColor;
             if (called == "H" || called == "L" || called == "S")
             {
@@ -195,6 +179,10 @@ namespace HandyTweaks
             if (updating)
                 return;
             Color nc = _c;
+            //if (tag == "R" || tag == "G" || tag == "B" || tag == "L")
+            //    value = Math.Max(min, Math.Min(max, value));
+            if (tag == "H")
+                value %= 1;
             if (tag == "R")
                 nc.r = value;
             else if (tag == "G")
@@ -212,15 +200,12 @@ namespace HandyTweaks
             
             UpdateSliders(nc, tag, value, fromInput);
         }
-        void Update()
+        public void Update()
         {
-            if (Input.GetKeyUp(KeyCode.Escape) && KAUI._GlobalExclusiveUI == handle)
-                CloseUI();
             if (Requires != null && !Requires())
-                CloseUI();
+                OnCloseButton();
         }
 
-        public static GameObject UIPrefab;
         static ColorPicker open;
         public static void TrySetColor(Color color)
         {
@@ -230,7 +215,7 @@ namespace HandyTweaks
         public static ColorPicker OpenUI(Action<Color> onChange = null, Action onClose = null)
         {
             if (!open)
-                open = Instantiate(UIPrefab).transform.Find("Picker").gameObject.AddComponent<ColorPicker>();
+                open = HandyUIManager.OpenUI(HandyUIManager.ColorPickerUIPrefab);
             open.OnChange = onChange;
             open.OnClose = onClose;
             return open;
