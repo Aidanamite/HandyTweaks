@@ -169,7 +169,7 @@ namespace HandyTweaks
                         {
                             if (!m.HasColor("_EmissiveColor"))
                                 continue;
-                            var c = m.GetColor("_EmissiveColor");
+                            var c = MaterialEdit.Get(m).OriginalEmissive.original;
                             if (c.r == 0 && c.g == 0 && c.b == 0)
                                 continue;
                             if (!m.HasTexture("_EmissiveMap") || m.GetTexture("_EmissiveMap") as Texture2D == null)
@@ -177,7 +177,8 @@ namespace HandyTweaks
                             else
                                 hasGlow = ExtendedEmissionTexture.Get(m.GetTexture("_EmissiveMap") as Texture2D).HasAnyColor;
                         }
-                e.emissionColorBtn.SetVisibility(hasGlow);
+                if (e.emissionColorBtn.GetVisibility() != hasGlow)
+                    e.emissionColorBtn.SetVisibility(hasGlow);
             }
         }
     }

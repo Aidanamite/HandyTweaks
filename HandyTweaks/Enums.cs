@@ -23,12 +23,12 @@ namespace HandyTweaks
         RGBHSL
     }
 
-    public enum StatCompareResult
+    /*public enum StatCompareResult
     {
         Equal,
         Greater,
         Lesser
-    }
+    }*/
 
     enum Side
     {

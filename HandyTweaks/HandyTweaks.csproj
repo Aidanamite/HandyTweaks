@@ -41,7 +41,10 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="DataBuilder.cs" />
+    <Compile Include="DataReader.cs" />
     <Compile Include="DragonFilterMenu.cs" />
+    <Compile Include="ReportManager.cs" />
     <Compile Include="SharedScripts\ClickOnButton.cs" />
     <Compile Include="SharedScripts\GotoOnClick.cs" />
     <Compile Include="SharedScripts\HandyUIManager.cs" />
@@ -130,6 +133,9 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Xml" />
     <Reference Include="Unity.TextMeshPro">

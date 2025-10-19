@@ -145,8 +145,9 @@ namespace HandyTweaks
                     float.TryParse(stat2, out num2);
                     text2 = Math.Round(num2 * 100) + "%";
                 }
-                var statCompareResult = (num == num2) ? StatCompareResult.Equal : (num2 > num) ? StatCompareResult.Greater : StatCompareResult.Lesser;
-                if (statCompareResult != StatCompareResult.Equal)
+                
+                var statCompareResult = (num == num2) ? UiStatsCompareMenu.StatCompareResult.Equal : (num2 > num) ? UiStatsCompareMenu.StatCompareResult.Greater : UiStatsCompareMenu.StatCompareResult.Lesser;
+                if (statCompareResult != UiStatsCompareMenu.StatCompareResult.Equal)
                     diffVal = Math.Round(Math.Abs(num - num2) * 100) + "%";
                 __instance.ShowStatInfo(kawidget2, text, name, text2, diffVal, statCompareResult, showCompare);
             }
@@ -283,7 +284,7 @@ namespace HandyTweaks
                 return;
             void Show(string name, string value)
             {
-                KAWidget kawidget = ___mUiStats.GetContentMenuCombat().AddWidget(___mUiStats.GetContentMenuCombat()._Template.name);
+                KAWidget kawidget = ___mUiStats.mContentMenuCombat.AddWidget(___mUiStats.mContentMenuCombat._Template.name);
                 kawidget.FindChildItem("CombatStatWidget", true).SetText(name);
                 kawidget.FindChildItem("CombatStatValueWidget", true).SetText(value);
             }
@@ -359,13 +360,13 @@ namespace HandyTweaks
         {
             if (item.name == "btnBuyAll")
             {
-                var byCatergory = CommonInventoryData.pInstance.FullInventory();
+                var byCatergory = CommonInventoryData.pInstance.mInventory;
 
                 var all = new List<ItemData>();
                 var check = new HashSet<int>();
                 var gems = 0;
                 var coins = 0;
-                var cache = KAUIStore.pInstance.pChooseMenu.GetCached();
+                var cache = KAUIStore.pInstance.pChooseMenu.mCachedItemData;
                 foreach (var ite in cache.Keys)
                     if (ite != null
                         && !ite.IsBundleItem()

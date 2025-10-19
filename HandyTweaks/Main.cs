@@ -28,7 +28,7 @@ namespace HandyTweaks
     [BepInPlugin("com.aidanamite.HandyTweaks", "Handy Tweaks", VERSION)]
     public class Main : BaseUnityPlugin
     {
-        public const string VERSION = "1.6.0";
+        public const string VERSION = "1.6.1";
 
         [ConfigField(Description = "Automatically does all available actions on the farm when pressed")]
         public static KeyCode DoFarmStuff = KeyCode.KeypadMinus;
@@ -113,6 +113,13 @@ namespace HandyTweaks
         public static int CacheExpiration = 2592000;
         [ConfigField(Description = "Fixes the expiration date updates every time the game uses the cache instead of only when downloading a new cache")]
         public static bool FixCacheExpiration = true;
+
+        [ConfigField(Description = "PLACEHOLDER")]
+        public static int PlayerReporterResolutionOverride = -1;
+        [ConfigField(Description = "PLACEHOLDER")]
+        public static int MaxRecordingFPS = 30;
+        [ConfigField(Description = "PLACEHOLDER (seconds)")]
+        public static float MaxRecordingLength = 2;
 
         public static Main instance;
         public static ManualLogSource logger;
@@ -352,6 +359,8 @@ namespace HandyTweaks
         float timer;
         public void Update()
         {
+            //if (Camera.main)
+            //    Camera.main.gameObject.GetOrAddComponent<ReportManager>();
             if (!seenLogin && UiLogin.pInstance)
                 seenLogin = true;
             if (running != null && running.Count == 0 && seenLogin)
@@ -388,7 +397,7 @@ namespace HandyTweaks
             {
                 timer = 0.2f;
                 foreach (var i in Resources.FindObjectsOfTypeAll<FarmItem>())
-                    if (i && i.gameObject.activeInHierarchy && i.pCurrentStage != null && !i.IsWaitingForWsCall())
+                    if (i && i.gameObject.activeInHierarchy && i.pCurrentStage != null && !i.mIsWaitingForWsCall)
                     {
                         if (i is CropFarmItem c)
                         {
@@ -443,7 +452,7 @@ namespace HandyTweaks
                                         var userItemData = CommonInventoryData.pInstance.FindItem(consumable.ItemID);
                                         if (userItemData != null && consumable.Amount <= userItemData.Quantity)
                                         {
-                                            d.SetCurrentUsedConsumableCriteria(consumable);
+                                            d.mCurrentUsedConsumableCriteria = consumable;
                                             d.GotoNextStage(false);
                                             break;
                                         }
@@ -461,7 +470,7 @@ namespace HandyTweaks
                                         var userItemData = CommonInventoryData.pInstance.FindItem(consumable.ItemID);
                                         if (userItemData != null && consumable.Amount <= userItemData.Quantity)
                                         {
-                                            t.SetCurrentUsedConsumableCriteria(consumable);
+                                            t.mCurrentUsedConsumableCriteria = consumable;
                                             t.GotoNextStage(false);
                                             break;
                                         }

@@ -235,7 +235,7 @@ namespace HandyTweaks
         public void Refresh()
         {
             if (ReleaseBtn)
-                ReleaseBtn.SetVisibility(instance.pSelectedPetID != SanctuaryManager.pCurPetData.RaisedPetID || true);
+                ReleaseBtn.SetVisibility(instance.pSelectedPetID != SanctuaryManager.pCurPetData.RaisedPetID);
         }
         public void OnClick(KAWidget widget)
         {
