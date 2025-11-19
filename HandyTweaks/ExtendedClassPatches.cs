@@ -322,7 +322,7 @@ namespace HandyTweaks
         {
             var code = instructions.ToList();
             code.Insert(
-                code.FindIndex(x => x.operand is FieldInfo f && f.Name == "Colors") + 1,
+                code.FindLastIndex(x => x.operand is FieldInfo f && f.Name == "Colors") + 1,
                 new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Patch_FixHigherMMOColours), nameof(MaybeReplace))));
             return code;
         }

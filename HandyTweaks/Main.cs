@@ -28,7 +28,7 @@ namespace HandyTweaks
     [BepInPlugin("com.aidanamite.HandyTweaks", "Handy Tweaks", VERSION)]
     public class Main : BaseUnityPlugin
     {
-        public const string VERSION = "1.6.1";
+        public const string VERSION = "1.6.2";
 
         [ConfigField(Description = "Automatically does all available actions on the farm when pressed")]
         public static KeyCode DoFarmStuff = KeyCode.KeypadMinus;
