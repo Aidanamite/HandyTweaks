@@ -28,7 +28,7 @@ namespace HandyTweaks
     [BepInPlugin("com.aidanamite.HandyTweaks", "Handy Tweaks", VERSION)]
     public class Main : BaseUnityPlugin
     {
-        public const string VERSION = "1.6.2";
+        public const string VERSION = "1.6.3";
 
         [ConfigField(Description = "Automatically does all available actions on the farm when pressed")]
         public static KeyCode DoFarmStuff = KeyCode.KeypadMinus;
@@ -98,6 +98,8 @@ namespace HandyTweaks
         public static bool DisableFog = false;
         [ConfigField(Description = "Makes it so when renaming your viking or dragon, the input box starts with your current name entered")]
         public static bool KeepPreviousOnRename = true;
+        [ConfigField(Description = "Press while hovering the emission or fireball customization buttons to reset the colour to default. Leave as None to use RMB")]
+        public static KeyCode ClearColour = KeyCode.None;
 
         [ConfigField(Description = "Will check all mods to see if they have an update available and tell you what the latest version is")]
         public static bool CheckForModUpdates = true;

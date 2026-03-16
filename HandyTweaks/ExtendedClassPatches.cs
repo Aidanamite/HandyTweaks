@@ -136,7 +136,7 @@ namespace HandyTweaks
         static void Update(UiDragonCustomization __instance)
         {
             var e = ExtendedDragonCustomization.Get(__instance);
-            if (Input.GetMouseButtonDown(1))
+            if (Main.ClearColour == KeyCode.None ? Input.GetMouseButtonDown(1) : Input.GetKeyDown(Main.ClearColour))
             {
                 var flag = false;
                 if (KAUI.GetGlobalMouseOverItem() == e.emissionColorBtn)
