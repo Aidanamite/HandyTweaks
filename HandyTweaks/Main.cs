@@ -28,7 +28,7 @@ namespace HandyTweaks
     [BepInPlugin("com.aidanamite.HandyTweaks", "Handy Tweaks", VERSION)]
     public class Main : BaseUnityPlugin
     {
-        public const string VERSION = "1.6.3";
+        public const string VERSION = "1.6.4";
 
         [ConfigField(Description = "Automatically does all available actions on the farm when pressed")]
         public static KeyCode DoFarmStuff = KeyCode.KeypadMinus;
@@ -100,6 +100,8 @@ namespace HandyTweaks
         public static bool KeepPreviousOnRename = true;
         [ConfigField(Description = "Press while hovering the emission or fireball customization buttons to reset the colour to default. Leave as None to use RMB")]
         public static KeyCode ClearColour = KeyCode.None;
+        [ConfigField(Description = "Makes it so if you see a player with game-breaking characters in their name, their username and ID will be written to a log file so they can be reported")]
+        public static bool LogIllegalNames = false;
 
         [ConfigField(Description = "Will check all mods to see if they have an update available and tell you what the latest version is")]
         public static bool CheckForModUpdates = true;
@@ -116,11 +118,11 @@ namespace HandyTweaks
         [ConfigField(Description = "Fixes the expiration date updates every time the game uses the cache instead of only when downloading a new cache")]
         public static bool FixCacheExpiration = true;
 
-        [ConfigField(Description = "PLACEHOLDER")]
+        //[ConfigField(Description = "PLACEHOLDER")] // TODO Finish player reporter
         public static int PlayerReporterResolutionOverride = -1;
-        [ConfigField(Description = "PLACEHOLDER")]
+        //[ConfigField(Description = "PLACEHOLDER")]
         public static int MaxRecordingFPS = 30;
-        [ConfigField(Description = "PLACEHOLDER (seconds)")]
+        //[ConfigField(Description = "PLACEHOLDER (seconds)")]
         public static float MaxRecordingLength = 2;
 
         public static Main instance;
@@ -362,7 +364,7 @@ namespace HandyTweaks
         public void Update()
         {
             //if (Camera.main)
-            //    Camera.main.gameObject.GetOrAddComponent<ReportManager>();
+            //    Camera.main.gameObject.GetOrAddComponent<ReportManager>(); // TODO Finish player reporter
             if (!seenLogin && UiLogin.pInstance)
                 seenLogin = true;
             if (running != null && running.Count == 0 && seenLogin)
@@ -529,27 +531,28 @@ namespace HandyTweaks
         {
             var s = AvatarData.pInstance.DisplayName;
             var modified = false;
-            var builder = new StringBuilder(s.Length);
-            foreach (var c in s)
-                builder.Append(Patch_CanInput.replace.TryGetValue(c, out var nc) && (modified = true) ? nc : c);
+            var builder = new StringBuilder(s);
             var state = new RichTextState(Color.white);
             for (int i = 0; i < s.Length;)
                 if (!state.ParseSymbol(s, ref i))
                     i++;
             if (state.bold && (modified = true))
-                builder.Append("[/b]");
+                builder.Append("[∕b]");
             if (state.italic && (modified = true))
-                builder.Append("[/i]");
+                builder.Append("[∕i]");
             if (state.under && (modified = true))
-                builder.Append("[/u]");
+                builder.Append("[∕u]");
             if (state.strike && (modified = true))
-                builder.Append("[/s]");
+                builder.Append("[∕s]");
             if (state.sub != 0 && (modified = true))
-                builder.Append("[/sub]");
-            for (int i = state.colors.size - 1; i > 1 && (modified = true); i--)
+                builder.Append("[∕sub]");
+            for (int i = state.colors.size - 1; i >= 1 && (modified = true); i--)
                 builder.Append("[-]");
             if (state.ignore && (modified = true))
-                builder.Append("[/c]");
+                builder.Append("[∕c]");
+            for (int i = 0; i < builder.Length; i++)
+                if (Patch_CanInput.replace.TryGetValue(builder[i], out var nc) && (modified = true))
+                    builder[i] = nc;
             if (modified)
             {
                 s = builder.ToString();

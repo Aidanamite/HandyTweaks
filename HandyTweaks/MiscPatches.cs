@@ -13,6 +13,7 @@ using UnityEngine;
 using TMPro;
 using System.Runtime.CompilerServices;
 using UnityEngine.Assertions.Must;
+using System.IO;
 
 namespace HandyTweaks
 {
@@ -1070,5 +1071,55 @@ namespace HandyTweaks
                 __instance.mEditLabel.SetText(__instance.mSelectedPetData.Name);
         }
     }
-    
+
+    [HarmonyPatch]
+    static class Patch_FixSymbolParse
+    {
+        static MethodBase TargetMethod() => typeof(NGUIText).GetMethods(~BindingFlags.Default).First(x => x.Name == "ParseSymbol" && x.GetParametersNoCopy().Length > 2);
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var code = instructions.ToList();
+            for (int i = code.Count - 1; i >= 0; i--)
+                if (code[i].operand is MethodInfo m && m.Name == "Substring")
+                    code.Insert(
+                        i + 1,
+                        new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Patch_FixSymbolParse),nameof(UnRemoveSafeChars))));
+            return code;
+        }
+        static string UnRemoveSafeChars(string original)
+        {
+            var modified = false;
+            var builder = new StringBuilder(original.Length);
+            foreach (var c in original)
+                builder.Append(Patch_CanInput.replace.TryFindKey(c, out var nc) && (modified = true) ? nc : c);
+            if (modified)
+                return builder.ToString();
+            else
+                return original;
+        }
+    }
+
+    [HarmonyPatch(typeof(MMOAvatar), "UpdateMMOData")]
+    static class Patch_BadPlayerLogging
+    {
+        static HashSet<string> logged = new HashSet<string>();
+        static void Postfix(MMOAvatar __instance)
+        {
+            if (!Main.LogIllegalNames || string.IsNullOrEmpty(__instance?.mAvatarData?.mInstance?.DisplayName) || logged.Contains(__instance.pUserID))
+                return;
+            var name = __instance.mAvatarData.mInstance.DisplayName;
+            foreach (var c in name)
+                if (Patch_CanInput.replace.ContainsKey(c))
+                {
+                    logged.Add(__instance.pUserID);
+                    var markers = new StringBuilder(name.Length);
+                    markers.Append(' ', name.Length);
+                    for (int i = 0; i < name.Length; i++)
+                        if (Patch_CanInput.replace.ContainsKey(name[i]))
+                            markers[i] = '^';
+                    File.AppendAllText("bad player names.log", $"ID: {__instance.pUserID}\n - Name: {name}\n         {markers}\n");
+                    return;
+                }
+        }
+    }
 }

@@ -9,6 +9,7 @@ using System.Net;
 using UnityEngine;
 using System.Runtime.InteropServices;
 using Object = UnityEngine.Object;
+using static HandyTweaks.ExtentionMethods;
 
 namespace HandyTweaks
 {
@@ -226,80 +227,187 @@ namespace HandyTweaks
             return l[index];
         }
 
+
         public static bool SoDtoUnityRich(this string str, out string result, Color baseColor, bool tmpro = false, bool forEdit = false)
         {
             var _result = new StringBuilder(str.Length);
             var flag = false;
             var curr = new RichTextState(baseColor);
             var last = new RichTextState(curr);
+            var symbolStack = new List<Symbol>(); // need to use a stack of appended symbols because unity rich text elements require tags to be closed in the same order they were opened while sod rich text does not
+            var italic = new Symbol("i");
+            var bold = new Symbol("b");
+            var supertext = new Symbol("sup");
+            var subtext = new Symbol("sub");
+            var dummies = new HashSet<string>();
+
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             void AppendColor(Color color)
-                => _result.AppendFormat("<color=#{0:X2}{1:X2}{2:X2}{3:X2}>",
+                => AppendOpen(new Symbol(string.Format("color=#{0:X2}{1:X2}{2:X2}{3:X2}",
                     Math.Min(Math.Max((int)Math.Round(color.r * 255), 0), 255),
                     Math.Min(Math.Max((int)Math.Round(color.g * 255), 0), 255),
                     Math.Min(Math.Max((int)Math.Round(color.b * 255), 0), 255),
-                    Math.Min(Math.Max((int)Math.Round(color.a * 255), 0), 255));
-            for (int i = 0; i <= str.Length;)
+                    Math.Min(Math.Max((int)Math.Round(color.a * 255), 0), 255)), "color")
+                { tag = "color" });
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            void AppendOpenClose(Symbol symbol, bool open)
+            {
+                if (open)
+                    AppendOpen(symbol);
+                else
+                    AppendClose(symbol);
+            }
+            void AppendOpen(Symbol symbol)
+            {
+                if (symbolStack.Contains(symbol))
+                    return;
+                if (symbol.tag != null && dummies.Contains(symbol.tag))
+                    symbol = new Symbol(symbol);
+                symbolStack.Add(symbol);
+                _result.Append(symbol.Open);
+            }
+            void AppendClose(Symbol symbol)
+            {
+                if (symbol.tag != null && dummies.Contains(symbol.tag))
+                {
+                    symbolStack.Remove(symbol);
+                    return;
+                }
+                for (int i = symbolStack.Count - 1; i >= 0; i--)
+                {
+                    _result.Append(symbolStack[i].Close);
+                    if (symbolStack[i] == symbol)
+                    {
+                        symbolStack.RemoveAt(i);
+                        for (; i < symbolStack.Count; i++)
+                            _result.Append(symbolStack[i].Open);
+                        return;
+                    }
+                }
+            }
+            void CloseLast(string tag)
+            {
+                for (int i = symbolStack.Count - 1; i >= 0; i--)
+                    if (symbolStack[i].tag == tag)
+                    {
+                        AppendClose(symbolStack[i]);
+                        break;
+                    }
+            }
+            void Dummy(string tag)
+            {
+                if (!dummies.Add(tag))
+                    return;
+                int first = -1;
+                for (int i = 0; i < symbolStack.Count; i++)
+                    if (symbolStack[i].tag == tag && symbolStack[i].Wrapper == null)
+                    {
+                        first = i;
+                        break;
+                    }
+                if (first == -1)
+                    return;
+                for (int i = symbolStack.Count - 1; i >= first; i--)
+                {
+                    _result.Append(symbolStack[i].Close);
+                    if (symbolStack[i].tag == tag && symbolStack[i].Wrapper == null)
+                        symbolStack[i] = new Symbol(symbolStack[i]);
+                }
+                for (int i = first + 1; i < symbolStack.Count; i++)
+                    _result.Append(symbolStack[i].Open);
+            }
+            void UnDummy(string tag)
+            {
+                if (!dummies.Remove(tag))
+                    return;
+                int first = -1;
+                for (int i = 0; i < symbolStack.Count; i++)
+                    if (symbolStack[i].tag == tag && symbolStack[i].Wrapper != null)
+                    {
+                        first = i;
+                        break;
+                    }
+                if (first == -1)
+                    return;
+                for (int i = symbolStack.Count - 1; i >= first; i--)
+                {
+                    _result.Append(symbolStack[i].Close);
+                    if (symbolStack[i].tag == tag && symbolStack[i].Wrapper != null)
+                        symbolStack[i] = symbolStack[i].Wrapper;
+                }
+                for (int i = first + 1; i < symbolStack.Count; i++)
+                    _result.Append(symbolStack[i].Open);
+            }
+            for (int i = 0; i < str.Length;)
             {
                 int pi = i;
-                if (i == str.Length || curr.ParseSymbol(str, ref i))
+                if (curr.ParseSymbol(str, ref i))
                 {
-                    if (i == str.Length)
-                    {
-                        i++;
-                        if (flag)
-                            curr = new() { ignore = true };
-                        else
-                            continue;
-                    }
-                    else if (forEdit)
+                    if (forEdit)
                         _result.Append(str, pi, i - pi);
                     if ((last.strike != curr.strike) || (last.under != curr.under))
                     { }
                     if (last.sub != curr.sub && tmpro)
                     {
                         if (last.sub != 0)
-                            _result.Append(last.sub == 1 ? "</sub>" : "</sup>");
+                            AppendClose(last.sub == 1 ? subtext : supertext);
                         if (curr.sub != 0)
-                            _result.Append(curr.sub == 1 ? "<sub>" : "<sup>");
+                            AppendOpen(curr.sub == 1 ? subtext : supertext);
                     }
                     if (last.italic != curr.italic)
-                        _result.Append(curr.italic ? "<i>" : "</i>");
+                        AppendOpenClose(italic, curr.italic);
                     if (last.bold != curr.bold)
-                        _result.Append(curr.bold ? "<b>" : "</b>");
+                        AppendOpenClose(bold, curr.bold);
                     if (last.ignore != curr.ignore)
                     {
                         if (curr.ignore)
-                            for (int j = last.colors.size - 1; j >= 1; j--)
-                                _result.Append("</color>");
+                            Dummy("color");
                         else
-                            for (int j = curr.colors.size - 1; j >= 1; j--)
-                                AppendColor(curr.colors[j]);
+                            UnDummy("color");
                     }
                     else if (!curr.ignore && last.colors.size != curr.colors.size)
                     {
                         if (last.colors.size < curr.colors.size)
                             AppendColor(curr.colors[curr.colors.size - 1]);
                         else
-                            _result.Append("</color>");
+                            CloseLast("color");
                     }
                     last.CopyFrom(curr);
                     flag = true;
                     continue;
                 }
                 _result.Append(str[i]);
+                if (str[i] == '<')
+                    _result.Append("<i></i>");
                 i++;
             }
-            if (flag)
-            {
-                for (int j = curr.colors.size - 1; j >= 1; j--)
-                    _result.Append("</color>");
-            }
+            for (int j = symbolStack.Count - 1; j >= 0; j--)
+                _result.Append(symbolStack[j].Close);
             //    Debug.Log($"Formatted\n{str}\n----------- to\n{_result}");
             result = flag ? _result.ToString() : str;
             return flag;
         }
+
+        public class Symbol
+        {
+            public readonly string Open;
+            public readonly string Close;
+            public readonly Symbol Wrapper;
+            public string tag;
+            public Symbol(Symbol wrapper)
+            {
+                Wrapper = wrapper;
+                tag = wrapper.tag;
+            }
+            public Symbol(string name) : this(name,name) { }
+            public Symbol(string open,string close)
+            {
+                Open = "<" + open + ">";
+                Close = "</" + close + ">";
+            }
+        }
+
         public static string Join<T>(this IEnumerable<T> values, Func<T, string> converter = null, string delimeter = ", ") => new StringBuilder().Join(values, converter, delimeter).ToString();
         public static StringBuilder Join<T>(this StringBuilder builder, IEnumerable<T> values, Func<T, string> converter = null, string delimeter = ", ")
         {
@@ -333,6 +441,17 @@ namespace HandyTweaks
             RenderTexture.active = prev;
             RenderTexture.ReleaseTemporary(temp);
             return pixels;
+        }
+        public static bool TryFindKey<X,Y>(this IEnumerable<KeyValuePair<X, Y>> keyValues, Y value, out X key)
+        {
+            foreach (var pair in keyValues)
+                if (pair.Value == null ? value == null ? true : value.Equals(null) : pair.Value.Equals(value))
+                {
+                    key = pair.Key;
+                    return true;
+                }
+            key = default;
+            return false;
         }
     }
 }
